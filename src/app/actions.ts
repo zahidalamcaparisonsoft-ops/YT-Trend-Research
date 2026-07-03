@@ -1,0 +1,81 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { db } from "@/lib/supabase";
+import { resolveChannel } from "@/lib/youtube";
+import { runIngest } from "@/lib/ingest";
+
+export async function addChannel(formData: FormData) {
+  const input = String(formData.get("input") || "").trim();
+  const isSelf = formData.get("is_self") === "on";
+  if (!input) return;
+  const ch = await resolveChannel(input);
+  await db()
+    .from("channels")
+    .upsert(
+      {
+        name: ch.title,
+        handle: ch.handle,
+        youtube_channel_id: ch.channelId,
+        uploads_playlist_id: ch.uploadsPlaylistId,
+        is_self: isSelf,
+        is_active: true,
+      },
+      { onConflict: "youtube_channel_id" }
+    );
+  revalidatePath("/channels");
+  revalidatePath("/");
+}
+
+export async function removeChannel(formData: FormData) {
+  const id = String(formData.get("id"));
+  await db().from("channels").delete().eq("id", id);
+  revalidatePath("/channels");
+}
+
+export async function toggleChannel(formData: FormData) {
+  const id = String(formData.get("id"));
+  const active = formData.get("active") === "true";
+  await db().from("channels").update({ is_active: !active }).eq("id", id);
+  revalidatePath("/channels");
+}
+
+export async function saveProfile(formData: FormData) {
+  const pillars = String(formData.get("pillars") || "")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  await db()
+    .from("channel_profile")
+    .update({
+      name: String(formData.get("name") || ""),
+      niche: String(formData.get("niche") || ""),
+      audience: String(formData.get("audience") || ""),
+      voice_tone: String(formData.get("voice_tone") || ""),
+      positioning: String(formData.get("positioning") || ""),
+      pillars,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+  revalidatePath("/dna");
+}
+
+export async function saveConfig(formData: FormData) {
+  await db()
+    .from("channel_config")
+    .update({
+      longs_per_week: Number(formData.get("longs_per_week") || 2),
+      shorts_per_week: Number(formData.get("shorts_per_week") || 3),
+      edit_days_long: Number(formData.get("edit_days_long") || 2),
+      edit_days_short: Number(formData.get("edit_days_short") || 1),
+      trend_vs_pillar: String(formData.get("trend_vs_pillar") || "pillar-led"),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+  revalidatePath("/dna");
+}
+
+export async function triggerIngest() {
+  await runIngest();
+  revalidatePath("/");
+}

@@ -1,0 +1,17 @@
+# deps
+node_modules
+
+# env / secrets
+.env
+.env.local
+.env*.local
+
+# next.js
+.next
+out
+next-env.d.ts
+
+# misc
+.DS_Store
+*.log
+.vercel

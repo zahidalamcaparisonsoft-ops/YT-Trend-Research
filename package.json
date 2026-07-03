@@ -1,0 +1,31 @@
+{
+  "name": "yt-trend-research",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI YouTube Content Command Center — competitor trend intelligence + autonomous content planning + script generation.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "add": "node scripts/add-competitor.mjs",
+    "ingest": "node scripts/ingest.mjs",
+    "list": "node scripts/list-channels.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5",
+    "next": "14.2.15",
+    "openai": "^4.67.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.11",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3"
+  }
+}

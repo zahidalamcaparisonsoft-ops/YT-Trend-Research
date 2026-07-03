@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/ingest?secret=ce_cron_9f3a7b2e",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}
