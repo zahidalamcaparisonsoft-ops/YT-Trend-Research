@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/ingest?secret=ce_cron_9f3a7b2e",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/analyze?secret=ce_cron_9f3a7b2e",
+      "schedule": "0 7 * * 1"
     }
   ]
 }

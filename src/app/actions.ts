@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/supabase";
 import { resolveChannel } from "@/lib/youtube";
 import { runIngest } from "@/lib/ingest";
+import { runAnalysis } from "@/lib/analyze";
+import { generateScript } from "@/lib/generate";
 
 export async function addChannel(formData: FormData) {
   const input = String(formData.get("input") || "").trim();
@@ -28,8 +30,7 @@ export async function addChannel(formData: FormData) {
 }
 
 export async function removeChannel(formData: FormData) {
-  const id = String(formData.get("id"));
-  await db().from("channels").delete().eq("id", id);
+  await db().from("channels").delete().eq("id", String(formData.get("id")));
   revalidatePath("/channels");
 }
 
@@ -78,4 +79,19 @@ export async function saveConfig(formData: FormData) {
 export async function triggerIngest() {
   await runIngest();
   revalidatePath("/");
+}
+
+export async function triggerAnalysis() {
+  await runAnalysis();
+  revalidatePath("/trends");
+}
+
+export async function generateFromTopic(formData: FormData) {
+  const topic = String(formData.get("topic") || "").trim();
+  const format = (String(formData.get("format") || "long") === "short" ? "short" : "long") as
+    | "long"
+    | "short";
+  if (!topic) return;
+  await generateScript({ topic, format, source: "manual" });
+  revalidatePath("/generate");
 }
