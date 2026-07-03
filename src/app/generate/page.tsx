@@ -3,6 +3,7 @@ import { db } from "@/lib/supabase";
 import { generateFromTopic } from "../actions";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 async function recent() {
   const { data } = await db()

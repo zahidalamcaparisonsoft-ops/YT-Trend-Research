@@ -3,6 +3,7 @@ import { db } from "@/lib/supabase";
 import { triggerAnalysis } from "../actions";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 async function load() {
   const { data } = await db()
