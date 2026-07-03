@@ -6,6 +6,7 @@ import { resolveChannel } from "@/lib/youtube";
 import { runIngest } from "@/lib/ingest";
 import { runAnalysis } from "@/lib/analyze";
 import { generateScript } from "@/lib/generate";
+import { generatePlan } from "@/lib/plan";
 
 export async function addChannel(formData: FormData) {
   const input = String(formData.get("input") || "").trim();
@@ -94,4 +95,32 @@ export async function generateFromTopic(formData: FormData) {
   if (!topic) return;
   await generateScript({ topic, format, source: "manual" });
   revalidatePath("/generate");
+}
+
+export async function generateWeekPlan() {
+  await generatePlan();
+  revalidatePath("/calendar");
+}
+
+export async function writeScriptForPlan(formData: FormData) {
+  const id = String(formData.get("id"));
+  const { data: p } = await db().from("content_plan").select("topic, format").eq("id", id).single();
+  if (p) await generateScript({ topic: p.topic, format: p.format as "long" | "short", planId: id });
+  revalidatePath("/calendar");
+  revalidatePath("/generate");
+}
+
+export async function overrideSlot(formData: FormData) {
+  const id = String(formData.get("id"));
+  const topic = String(formData.get("topic") || "").trim();
+  if (!topic) return;
+  await db().from("content_plan").update({ topic, source: "manual", angle: "" }).eq("id", id);
+  revalidatePath("/calendar");
+}
+
+export async function setPlanStatus(formData: FormData) {
+  const id = String(formData.get("id"));
+  const status = String(formData.get("status"));
+  await db().from("content_plan").update({ status }).eq("id", id);
+  revalidatePath("/calendar");
 }

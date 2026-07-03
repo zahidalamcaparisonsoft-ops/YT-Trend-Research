@@ -7,9 +7,11 @@ async function getProfile() {
 }
 
 // Generate a full content package for a topic (long or short) and save it.
+// If planId is given, attaches to that calendar slot; otherwise creates a plan row.
 export async function generateScript(opts: {
   topic: string;
   format: "long" | "short";
+  planId?: string | null;
   trendId?: string | null;
   source?: "manual" | "trend" | "hot" | "pillar";
 }) {
@@ -57,24 +59,32 @@ ${shape}`;
 
   const a = await generateJSON<any>(system, user);
 
-  // save a plan row (memory) + the asset
-  const { data: plan } = await supabase
-    .from("content_plan")
-    .insert({
-      format,
-      status: "scripted",
-      topic,
-      angle: a.title_options?.[0] || topic,
-      source: opts.source || "manual",
-      trend_id: opts.trendId || null,
-    })
-    .select("id")
-    .single();
+  let planId = opts.planId || null;
+  if (planId) {
+    await supabase
+      .from("content_plan")
+      .update({ status: "scripted", updated_at: new Date().toISOString() })
+      .eq("id", planId);
+  } else {
+    const { data: plan } = await supabase
+      .from("content_plan")
+      .insert({
+        format,
+        status: "scripted",
+        topic,
+        angle: a.title_options?.[0] || topic,
+        source: opts.source || "manual",
+        trend_id: opts.trendId || null,
+      })
+      .select("id")
+      .single();
+    planId = plan!.id;
+  }
 
   const { data: asset } = await supabase
     .from("content_assets")
     .insert({
-      plan_id: plan!.id,
+      plan_id: planId,
       title_options: a.title_options || [],
       hook: a.hook || "",
       script: a.script || "",
@@ -90,5 +100,5 @@ ${shape}`;
     .select("*")
     .single();
 
-  return { planId: plan!.id, asset };
+  return { planId, asset };
 }

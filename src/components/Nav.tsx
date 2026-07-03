@@ -4,6 +4,7 @@ export default function Nav({ active }: { active?: string }) {
   const items: [string, string][] = [
     ["/", "Dashboard"],
     ["/trends", "Trends"],
+    ["/calendar", "Calendar"],
     ["/generate", "Generate"],
     ["/channels", "Channels"],
     ["/dna", "Channel DNA"],
