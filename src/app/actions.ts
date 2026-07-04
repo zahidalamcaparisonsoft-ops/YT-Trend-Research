@@ -14,6 +14,7 @@ export async function addChannel(formData: FormData) {
   const input = String(formData.get("input") || "").trim();
   const isSelf = formData.get("is_self") === "on";
   if (!input) return;
+  let addedName = "";
   try {
     const ch = await resolveChannel(input);
     const { error } = await db()
@@ -30,12 +31,13 @@ export async function addChannel(formData: FormData) {
         { onConflict: "youtube_channel_id" }
       );
     if (error) throw new Error(error.message);
+    addedName = ch.title;
   } catch (e: any) {
     redirect(`/channels?error=${encodeURIComponent(e?.message || "Failed to add channel")}`);
   }
   revalidatePath("/channels");
   revalidatePath("/");
-  redirect("/channels");
+  redirect(`/channels?added=${encodeURIComponent(addedName)}`);
 }
 
 export async function removeChannel(formData: FormData) {
