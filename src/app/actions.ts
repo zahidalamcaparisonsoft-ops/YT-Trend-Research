@@ -16,7 +16,7 @@ export async function addChannel(formData: FormData) {
   if (!input) return;
   try {
     const ch = await resolveChannel(input);
-    await db()
+    const { error } = await db()
       .from("channels")
       .upsert(
         {
@@ -29,6 +29,7 @@ export async function addChannel(formData: FormData) {
         },
         { onConflict: "youtube_channel_id" }
       );
+    if (error) throw new Error(error.message);
   } catch (e: any) {
     redirect(`/channels?error=${encodeURIComponent(e?.message || "Failed to add channel")}`);
   }

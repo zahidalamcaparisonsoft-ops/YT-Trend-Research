@@ -8,11 +8,12 @@ export default async function ChannelsPage({ searchParams }: { searchParams: { e
   let channels: any[] = [];
   let err: string | null = null;
   try {
-    const { data } = await db()
+    const { data, error } = await db()
       .from("channels")
       .select("*")
       .order("is_self", { ascending: false })
       .order("name");
+    if (error) throw new Error(error.message);
     channels = data ?? [];
   } catch (e: any) {
     err = e.message;
