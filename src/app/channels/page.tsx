@@ -4,7 +4,7 @@ import { addChannel, removeChannel, toggleChannel } from "../actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function ChannelsPage() {
+export default async function ChannelsPage({ searchParams }: { searchParams: { error?: string } }) {
   let channels: any[] = [];
   let err: string | null = null;
   try {
@@ -21,6 +21,12 @@ export default async function ChannelsPage() {
   return (
     <>
       <Nav active="/channels" />
+
+      {searchParams?.error && (
+        <div className="card p-3 mb-4 text-sm text-red-300 border border-red-500/30">
+          ⚠️ Couldn&apos;t add channel: {searchParams.error}
+        </div>
+      )}
 
       <div className="card p-5 mb-6">
         <h2 className="text-sm font-semibold mb-3">Add a channel</h2>

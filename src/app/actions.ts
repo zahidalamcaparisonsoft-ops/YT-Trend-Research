@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/supabase";
 import { resolveChannel } from "@/lib/youtube";
 import { runIngest } from "@/lib/ingest";
@@ -13,22 +14,27 @@ export async function addChannel(formData: FormData) {
   const input = String(formData.get("input") || "").trim();
   const isSelf = formData.get("is_self") === "on";
   if (!input) return;
-  const ch = await resolveChannel(input);
-  await db()
-    .from("channels")
-    .upsert(
-      {
-        name: ch.title,
-        handle: ch.handle,
-        youtube_channel_id: ch.channelId,
-        uploads_playlist_id: ch.uploadsPlaylistId,
-        is_self: isSelf,
-        is_active: true,
-      },
-      { onConflict: "youtube_channel_id" }
-    );
+  try {
+    const ch = await resolveChannel(input);
+    await db()
+      .from("channels")
+      .upsert(
+        {
+          name: ch.title,
+          handle: ch.handle,
+          youtube_channel_id: ch.channelId,
+          uploads_playlist_id: ch.uploadsPlaylistId,
+          is_self: isSelf,
+          is_active: true,
+        },
+        { onConflict: "youtube_channel_id" }
+      );
+  } catch (e: any) {
+    redirect(`/channels?error=${encodeURIComponent(e?.message || "Failed to add channel")}`);
+  }
   revalidatePath("/channels");
   revalidatePath("/");
+  redirect("/channels");
 }
 
 export async function removeChannel(formData: FormData) {
