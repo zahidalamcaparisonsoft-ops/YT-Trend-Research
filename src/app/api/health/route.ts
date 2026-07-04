@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
 import { db } from "@/lib/supabase";
 import { resolveChannel } from "@/lib/youtube";
 
@@ -21,8 +22,21 @@ export async function GET() {
       YOUTUBE_API_KEY: (process.env.YOUTUBE_API_KEY || "").length,
       SUPABASE_SERVICE_ROLE_KEY: (process.env.SUPABASE_SERVICE_ROLE_KEY || "").length,
       SUPABASE_URL: (process.env.SUPABASE_URL || "").length,
+      OPENAI_API_KEY: (process.env.OPENAI_API_KEY || "").length,
     },
   };
+
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL || "gpt-4o",
+      response_format: { type: "json_object" },
+      messages: [{ role: "user", content: 'Return JSON {"ok":true}' }],
+    });
+    out.openai = { ok: true };
+  } catch (e: any) {
+    out.openai = { ok: false, status: e?.status, error: String(e?.message || e) };
+  }
 
   try {
     const ch = await resolveChannel("https://www.youtube.com/@mkbhd");

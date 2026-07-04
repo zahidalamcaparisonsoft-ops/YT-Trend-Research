@@ -21,7 +21,7 @@ async function load() {
   };
 }
 
-export default async function TrendsPage() {
+export default async function TrendsPage({ searchParams }: { searchParams: { error?: string } }) {
   let long: any[] = [];
   let short: any[] = [];
   let err: string | null = null;
@@ -49,6 +49,11 @@ export default async function TrendsPage() {
         <PendingBar label="Finding outliers &amp; clustering trends with AI — this can take up to a minute." />
       </form>
 
+      {searchParams?.error && (
+        <div className="card p-3 mb-4 text-sm text-red-300 border border-red-500/30">
+          ⚠️ Analysis failed: {searchParams.error}
+        </div>
+      )}
       {err && <p className="text-xs text-amber-300 mb-4">DB error: {err}</p>}
 
       <div className="grid md:grid-cols-2 gap-6">

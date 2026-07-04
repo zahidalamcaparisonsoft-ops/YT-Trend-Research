@@ -95,8 +95,13 @@ export async function triggerIngest() {
 }
 
 export async function triggerAnalysis() {
-  await runAnalysis();
+  try {
+    await runAnalysis();
+  } catch (e: any) {
+    redirect(`/trends?error=${encodeURIComponent(e?.message || "Analysis failed")}`);
+  }
   revalidatePath("/trends");
+  redirect("/trends");
 }
 
 export async function generateFromTopic(formData: FormData) {
