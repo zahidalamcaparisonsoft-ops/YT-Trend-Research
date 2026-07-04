@@ -11,6 +11,7 @@ import {
 } from "../actions";
 import PendingButton from "@/components/PendingButton";
 import PendingBar from "@/components/PendingBar";
+import FlashToast from "@/components/FlashToast";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -32,7 +33,11 @@ async function load() {
   return { scheduled: scheduled || [], pool: pool || [] };
 }
 
-export default async function CalendarPage({ searchParams }: { searchParams: { error?: string } }) {
+export default async function CalendarPage({
+  searchParams,
+}: {
+  searchParams: { error?: string; swapped?: string };
+}) {
   let scheduled: any[] = [];
   let pool: any[] = [];
   let err: string | null = null;
@@ -47,6 +52,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: { e
   return (
     <>
       <Nav active="/calendar" />
+      <FlashToast msg={searchParams?.swapped ? "Idea swapped into your calendar" : undefined} basePath="/calendar" />
 
       <form action={generateWeekPlan} className="mb-4">
         <div className="flex items-center justify-between">

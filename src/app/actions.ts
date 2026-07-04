@@ -218,3 +218,24 @@ export async function triggerRadar() {
   }
   revalidatePath("/radar");
 }
+
+export async function swapRadarIntoSlot(formData: FormData) {
+  const ideaId = String(formData.get("ideaId"));
+  const slotId = String(formData.get("slotId"));
+  if (!ideaId || !slotId) return;
+  const supabase = db();
+  const { data: idea } = await supabase.from("internet_ideas").select("*").eq("id", ideaId).single();
+  if (!idea) return;
+  await supabase
+    .from("content_plan")
+    .update({
+      topic: idea.topic,
+      angle: idea.angle || "",
+      source: "hot",
+      status: "idea",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", slotId);
+  revalidatePath("/calendar");
+  redirect("/calendar?swapped=1");
+}
