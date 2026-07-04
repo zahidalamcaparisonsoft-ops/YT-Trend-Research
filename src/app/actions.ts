@@ -70,6 +70,7 @@ export async function saveProfile(formData: FormData) {
     })
     .eq("id", 1);
   revalidatePath("/dna");
+  redirect("/dna?saved=dna");
 }
 
 export async function saveConfig(formData: FormData) {
@@ -85,6 +86,7 @@ export async function saveConfig(formData: FormData) {
     })
     .eq("id", 1);
   revalidatePath("/dna");
+  redirect("/dna?saved=config");
 }
 
 export async function triggerIngest() {

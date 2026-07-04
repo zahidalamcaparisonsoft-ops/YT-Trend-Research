@@ -1,10 +1,11 @@
 import Nav from "@/components/Nav";
 import { db } from "@/lib/supabase";
 import { saveProfile, saveConfig } from "../actions";
+import SavedToast from "@/components/SavedToast";
 
 export const dynamic = "force-dynamic";
 
-export default async function DnaPage() {
+export default async function DnaPage({ searchParams }: { searchParams: { saved?: string } }) {
   let profile: any = {};
   let config: any = {};
   let err: string | null = null;
@@ -23,6 +24,7 @@ export default async function DnaPage() {
   return (
     <>
       <Nav active="/dna" />
+      <SavedToast saved={searchParams?.saved} />
       {err && <p className="text-xs text-amber-300 mb-4">DB error: {err}</p>}
 
       <div className="grid md:grid-cols-2 gap-6">
