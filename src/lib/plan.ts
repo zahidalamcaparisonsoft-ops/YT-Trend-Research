@@ -1,5 +1,6 @@
 import { db } from "./supabase";
 import { generateJSON } from "./llm";
+import { getMyWinnersText } from "./performance";
 
 const DEFAULTS: Record<"long" | "short", number[]> = { long: [1, 4], short: [0, 2, 5] }; // 0=Mon
 
@@ -73,7 +74,8 @@ async function assignTopics(
   trends: { long: any[]; short: any[] },
   profile: any,
   balance: string,
-  recentTopics: string[]
+  recentTopics: string[],
+  winners: string
 ) {
   const fmtTrends = (arr: any[]) =>
     arr.map((t) => `- [${t.freshness}] ${t.topic}: ${t.summary}`).join("\n") || "(none yet)";
@@ -97,7 +99,7 @@ ${fmtTrends(trends.short)}
 
 RECENT TOPICS (do NOT repeat these):
 ${recentTopics.join(" | ") || "(none)"}
-
+${winners ? `\nWHAT WORKS FOR ME (favor topics/angles like these winners):\n${winners}\n` : ""}
 Rules:
 - "pillar-led" => mostly evergreen pillar topics, weave in 1 timely trend.
 - "balanced" => ~half pillars, half trends.
@@ -154,8 +156,9 @@ export async function generatePlan() {
     .order("created_at", { ascending: false })
     .limit(25);
   const recentTopics = (recent || []).map((r) => r.topic).filter(Boolean) as string[];
+  const winners = await getMyWinnersText();
 
-  const assigned = await assignTopics(slots, trendsByFmt, profile || {}, cfg.trend_vs_pillar, recentTopics);
+  const assigned = await assignTopics(slots, trendsByFmt, profile || {}, cfg.trend_vs_pillar, recentTopics, winners);
 
   // clear un-scripted, non-manual slots in the week; keep manual + already-scripted
   await supabase

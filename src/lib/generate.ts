@@ -1,5 +1,7 @@
 import { db } from "./supabase";
 import { generateJSON } from "./llm";
+import { getMyWinnersText } from "./performance";
+import { getPatternsText } from "./patterns";
 
 async function getProfile() {
   const { data } = await db().from("channel_profile").select("*").eq("id", 1).single();
@@ -18,6 +20,7 @@ export async function generateScript(opts: {
   const { topic, format } = opts;
   const supabase = db();
   const profile = await getProfile();
+  const [winners, patterns] = await Promise.all([getMyWinnersText(), getPatternsText(format)]);
 
   const system = `You are a ghost-writer for a YouTube creator. You write ready-to-shoot ${
     format === "short" ? "SHORT-FORM (vertical, <60s)" : "LONG-FORM"
@@ -53,8 +56,8 @@ export async function generateScript(opts: {
 
 FORMAT: ${format === "short" ? "YouTube SHORT (vertical, under 60s)" : "Long-form YouTube video"}
 TOPIC: ${topic}
-
-Write the complete package in my voice. Return JSON exactly in this shape:
+${winners ? `\nWHAT WORKS FOR ME (lean into these winners):\n${winners}\n` : ""}${patterns ? `\n${patterns}\n` : ""}
+Write the complete package in my voice, using my winning title/thumbnail patterns. Return JSON exactly in this shape:
 ${shape}`;
 
   const a = await generateJSON<any>(system, user);

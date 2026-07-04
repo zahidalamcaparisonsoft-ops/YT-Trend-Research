@@ -1,5 +1,6 @@
 import { db } from "./supabase";
 import { generateJSON } from "./llm";
+import { sendDiscord } from "./discord";
 
 function median(arr: number[]): number {
   if (!arr.length) return 0;
@@ -115,6 +116,18 @@ export async function runAnalysis() {
       });
       created++;
     }
+  }
+  if (created > 0) {
+    const { data: fresh } = await supabase
+      .from("trends")
+      .select("format, topic, freshness")
+      .eq("week_start", weekStart)
+      .order("score", { ascending: false, nullsFirst: false })
+      .limit(10);
+    const lines = (fresh || [])
+      .map((t) => `• [${t.format}${t.freshness === "hot" ? " 🔥" : ""}] ${t.topic}`)
+      .join("\n");
+    await sendDiscord(`📊 **Weekly trends ready** (${created} trends)\n${lines}`);
   }
   return { trends: created, week: weekStart };
 }

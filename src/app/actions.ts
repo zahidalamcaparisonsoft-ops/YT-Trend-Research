@@ -7,6 +7,7 @@ import { runIngest } from "@/lib/ingest";
 import { runAnalysis } from "@/lib/analyze";
 import { generateScript } from "@/lib/generate";
 import { generatePlan } from "@/lib/plan";
+import { analyzePatterns } from "@/lib/patterns";
 
 export async function addChannel(formData: FormData) {
   const input = String(formData.get("input") || "").trim();
@@ -123,4 +124,9 @@ export async function setPlanStatus(formData: FormData) {
   const status = String(formData.get("status"));
   await db().from("content_plan").update({ status }).eq("id", id);
   revalidatePath("/calendar");
+}
+
+export async function triggerPatterns() {
+  await analyzePatterns();
+  revalidatePath("/patterns");
 }
