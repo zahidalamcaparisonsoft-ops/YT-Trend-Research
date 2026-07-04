@@ -1,16 +1,25 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "YT Trend Research",
   description: "AI YouTube Content Command Center",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "YT Trends" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#F4F5F7",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <div className="max-w-5xl mx-auto px-5 py-6">{children}</div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

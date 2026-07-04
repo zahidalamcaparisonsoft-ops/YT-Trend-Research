@@ -17,7 +17,5 @@ export default function FlashToast({ msg, basePath }: { msg?: string; basePath: 
   }, [msg]);
 
   if (!show) return null;
-  return (
-    <div className="mb-4 rounded-lg px-4 py-2 text-sm bg-accent/15 text-accent border border-accent/30">✓ {show}</div>
-  );
+  return <div className="toast-ok">✓ {show}</div>;
 }

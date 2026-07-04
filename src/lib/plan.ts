@@ -70,7 +70,7 @@ async function bestPublishDays() {
 }
 
 async function assignTopics(
-  slots: { format: "long" | "short" }[],
+  slots: { format: "long" | "short"; date?: string }[],
   trends: { long: any[]; short: any[] },
   profile: any,
   balance: string,
@@ -79,9 +79,11 @@ async function assignTopics(
 ) {
   const fmtTrends = (arr: any[]) =>
     arr.map((t) => `- [${t.freshness}] ${t.topic}: ${t.summary}`).join("\n") || "(none yet)";
-  const slotList = slots.map((s, i) => `${i + 1}. ${s.format.toUpperCase()}`).join("\n");
+  const slotList = slots
+    .map((s, i) => `${i + 1}. ${s.format.toUpperCase()}${s.date ? ` (publishes ${s.date})` : ""}`)
+    .join("\n");
 
-  const system = `You plan a week of YouTube content for one creator. Balance mode: "${balance}". Respond ONLY with JSON.`;
+  const system = `You plan YouTube content for one creator. Balance mode: "${balance}". Respond ONLY with JSON.`;
   const user = `MY CHANNEL:
 - Niche: ${profile.niche || "AI SaaS / vibe coding"}
 - Voice: ${profile.voice_tone || "founder-to-founder, energetic"}
@@ -101,11 +103,12 @@ RECENT TOPICS (do NOT repeat these):
 ${recentTopics.join(" | ") || "(none)"}
 ${winners ? `\nWHAT WORKS FOR ME (favor topics/angles like these winners):\n${winners}\n` : ""}
 Rules:
-- "pillar-led" => mostly evergreen pillar topics, weave in 1 timely trend.
+- "pillar-led" => mostly evergreen pillar topics, weave in timely trends.
 - "balanced" => ~half pillars, half trends.
 - "trend-led" => mostly ride the hot trends.
 - SHORT slots must use short-form ideas; LONG slots long-form ideas.
 - Each must be specific to my niche/voice and NOT repeat recent topics.
+- Vary topics across the whole plan — no near-duplicate ideas in the same batch.
 - Be TECHNICALLY ACCURATE. Never conflate a tool with a model (e.g. "Claude Code" is a coding tool/CLI, not a model — do NOT pit it against a model like "Opus 4.8"; compare tools with tools and models with models). Do not reference specific calendar years. If unsure a claim is real, keep the idea general rather than inventing a comparison.
 
 For EACH slot in order return: "topic" (specific), "angle" (the hook/POV, one line), "source" ("pillar" | "trend" | "hot").
@@ -115,8 +118,25 @@ Return JSON: { "items": [ ... same length and order as slots ... ] }`;
   return Array.isArray(out.items) ? out.items : [];
 }
 
-// Build/refresh next week's calendar. Preserves manual overrides and already-scripted slots.
-export async function generatePlan() {
+// Backward-plan production dates for a publish date.
+export function productionDates(publishDate: string, format: "long" | "short", cfg: any) {
+  const editDays = format === "long" ? cfg?.edit_days_long || 2 : cfg?.edit_days_short || 1;
+  const publish = new Date(publishDate + "T00:00:00");
+  const editEnd = addDays(publish, -1);
+  const editStart = addDays(publish, -editDays);
+  const filmBy = addDays(editStart, -1);
+  const scriptBy = addDays(filmBy, -1);
+  return {
+    script_ready_by: iso(scriptBy),
+    film_by: iso(filmBy),
+    edit_start: iso(editStart),
+    edit_end: iso(editEnd),
+  };
+}
+
+// Build/refresh the calendar for the next `weeks` weeks (1 = next week, 4 = a full month).
+// Preserves manual overrides and already-scripted slots.
+export async function generatePlan(weeks = 1) {
   const supabase = db();
   const { data: cfgRow } = await supabase.from("channel_config").select("*").eq("id", 1).single();
   const cfg = cfgRow || {
@@ -129,17 +149,23 @@ export async function generatePlan() {
   const { data: profile } = await supabase.from("channel_profile").select("*").eq("id", 1).single();
 
   const start = nextMonday();
-  const weekStart = iso(start);
-  const weekEnd = iso(addDays(start, 6));
+  const horizonStart = iso(start);
+  const horizonEnd = iso(addDays(start, weeks * 7 - 1));
   const days = await bestPublishDays();
 
   const longDays = days.long.slice(0, cfg.longs_per_week);
   const shortDays = days.short.slice(0, cfg.shorts_per_week);
-  await supabase.from("channel_config").update({ publish_days: { long: longDays, short: shortDays } }).eq("id", 1);
+  await supabase
+    .from("channel_config")
+    .update({ publish_days: { long: longDays, short: shortDays } })
+    .eq("id", 1);
 
   const slots: { format: "long" | "short"; publish: string }[] = [];
-  for (const d of longDays) slots.push({ format: "long", publish: iso(addDays(start, d)) });
-  for (const d of shortDays) slots.push({ format: "short", publish: iso(addDays(start, d)) });
+  for (let w = 0; w < weeks; w++) {
+    for (const d of longDays) slots.push({ format: "long", publish: iso(addDays(start, w * 7 + d)) });
+    for (const d of shortDays) slots.push({ format: "short", publish: iso(addDays(start, w * 7 + d)) });
+  }
+  slots.sort((a, b) => a.publish.localeCompare(b.publish));
 
   const { data: trends } = await supabase
     .from("trends")
@@ -155,39 +181,42 @@ export async function generatePlan() {
     .from("content_plan")
     .select("topic")
     .order("created_at", { ascending: false })
-    .limit(25);
+    .limit(30);
   const recentTopics = (recent || []).map((r) => r.topic).filter(Boolean) as string[];
   const winners = await getMyWinnersText();
 
-  const assigned = await assignTopics(slots, trendsByFmt, profile || {}, cfg.trend_vs_pillar, recentTopics, winners);
-
-  // clear un-scripted, non-manual slots in the week; keep manual + already-scripted
+  // clear un-scripted, non-manual AI ideas in the horizon; keep manual + already-scripted
   await supabase
     .from("content_plan")
     .delete()
-    .gte("publish_date", weekStart)
-    .lte("publish_date", weekEnd)
+    .gte("publish_date", horizonStart)
+    .lte("publish_date", horizonEnd)
     .eq("status", "idea")
     .neq("source", "manual");
 
   const { data: existing } = await supabase
     .from("content_plan")
     .select("publish_date, format")
-    .gte("publish_date", weekStart)
-    .lte("publish_date", weekEnd);
+    .gte("publish_date", horizonStart)
+    .lte("publish_date", horizonEnd);
   const taken = new Set((existing || []).map((e) => `${e.publish_date}|${e.format}`));
 
+  const openSlots = slots.filter((s) => !taken.has(`${s.publish}|${s.format}`));
+  if (openSlots.length === 0) return { created: 0, weekStart: horizonStart, weekEnd: horizonEnd };
+
+  const assigned = await assignTopics(
+    openSlots.map((s) => ({ format: s.format, date: s.publish })),
+    trendsByFmt,
+    profile || {},
+    cfg.trend_vs_pillar,
+    recentTopics,
+    winners
+  );
+
   let created = 0;
-  for (let i = 0; i < slots.length; i++) {
-    const s = slots[i];
-    if (taken.has(`${s.publish}|${s.format}`)) continue; // don't duplicate
+  for (let i = 0; i < openSlots.length; i++) {
+    const s = openSlots[i];
     const a = assigned[i] || { topic: "(choose a topic)", angle: "", source: "pillar" };
-    const editDays = s.format === "long" ? cfg.edit_days_long || 2 : cfg.edit_days_short || 1;
-    const publish = new Date(s.publish + "T00:00:00");
-    const editEnd = addDays(publish, -1);
-    const editStart = addDays(publish, -editDays);
-    const filmBy = addDays(editStart, -1);
-    const scriptBy = addDays(filmBy, -1);
     await supabase.from("content_plan").insert({
       publish_date: s.publish,
       format: s.format,
@@ -195,14 +224,11 @@ export async function generatePlan() {
       topic: a.topic,
       angle: a.angle || "",
       source: ["pillar", "trend", "hot"].includes(a.source) ? a.source : "pillar",
-      script_ready_by: iso(scriptBy),
-      film_by: iso(filmBy),
-      edit_start: iso(editStart),
-      edit_end: iso(editEnd),
+      ...productionDates(s.publish, s.format, cfg),
     });
     created++;
   }
-  return { created, weekStart, weekEnd };
+  return { created, weekStart: horizonStart, weekEnd: horizonEnd };
 }
 
 async function loadTrends(supabase: ReturnType<typeof db>) {
@@ -234,7 +260,10 @@ export async function regenerateSlot(slotId: string) {
     .neq("id", slotId)
     .order("created_at", { ascending: false })
     .limit(30);
-  const avoid = (others || []).map((o) => o.topic).filter(Boolean).concat(slot.topic ? [slot.topic] : []);
+  const avoid = (others || [])
+    .map((o) => o.topic)
+    .filter(Boolean)
+    .concat(slot.topic ? [slot.topic] : []);
 
   const items = await assignTopics(
     [{ format: slot.format }],
@@ -277,7 +306,14 @@ export async function generateSuggestions(nLong = 3, nShort = 3) {
     ...Array.from({ length: nLong }, () => ({ format: "long" as const })),
     ...Array.from({ length: nShort }, () => ({ format: "short" as const })),
   ];
-  const items = await assignTopics(slots, trends, profile || {}, cfg?.trend_vs_pillar || "pillar-led", recentTopics, winners);
+  const items = await assignTopics(
+    slots,
+    trends,
+    profile || {},
+    cfg?.trend_vs_pillar || "pillar-led",
+    recentTopics,
+    winners
+  );
 
   // clear the old pool (unscheduled AI ideas)
   await supabase.from("content_plan").delete().is("publish_date", null).eq("status", "idea");

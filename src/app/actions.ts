@@ -7,9 +7,11 @@ import { resolveChannel } from "@/lib/youtube";
 import { runIngest } from "@/lib/ingest";
 import { runAnalysis } from "@/lib/analyze";
 import { generateScript } from "@/lib/generate";
-import { generatePlan, regenerateSlot, generateSuggestions } from "@/lib/plan";
+import { generatePlan, regenerateSlot, generateSuggestions, productionDates } from "@/lib/plan";
 import { analyzePatterns } from "@/lib/patterns";
 import { discoverInternetIdeas } from "@/lib/internet";
+
+/* ---------------- channels ---------------- */
 
 export async function addChannel(formData: FormData) {
   const input = String(formData.get("input") || "").trim();
@@ -53,6 +55,8 @@ export async function toggleChannel(formData: FormData) {
   revalidatePath("/channels");
 }
 
+/* ---------------- DNA / config ---------------- */
+
 export async function saveProfile(formData: FormData) {
   const pillars = String(formData.get("pillars") || "")
     .split("\n")
@@ -90,6 +94,8 @@ export async function saveConfig(formData: FormData) {
   redirect("/dna?saved=config");
 }
 
+/* ---------------- data & analysis ---------------- */
+
 export async function triggerIngest() {
   await runIngest();
   revalidatePath("/");
@@ -105,27 +111,55 @@ export async function triggerAnalysis() {
   redirect("/trends");
 }
 
+export async function triggerPatterns() {
+  try {
+    await analyzePatterns();
+  } catch (e: any) {
+    redirect(`/patterns?error=${encodeURIComponent(e?.message || "Pattern analysis failed")}`);
+  }
+  revalidatePath("/patterns");
+}
+
+export async function triggerRadar() {
+  try {
+    await discoverInternetIdeas();
+  } catch (e: any) {
+    redirect(`/radar?error=${encodeURIComponent(e?.message || "Radar scan failed")}`);
+  }
+  revalidatePath("/radar");
+}
+
+/* ---------------- generation ---------------- */
+
 export async function generateFromTopic(formData: FormData) {
-  const topic = String(formData.get("topic") || "").trim();
-  const format = (String(formData.get("format") || "long") === "short" ? "short" : "long") as
+  const planId = String(formData.get("plan_id") || "").trim();
+  const wordCountRaw = Number(formData.get("word_count") || 0);
+  const wordCount = wordCountRaw > 0 ? Math.min(wordCountRaw, 5000) : undefined;
+
+  let topic = String(formData.get("topic") || "").trim();
+  let format = (String(formData.get("format") || "long") === "short" ? "short" : "long") as
     | "long"
     | "short";
-  if (!topic) return;
+
+  let openId = "";
   try {
-    await generateScript({ topic, format, source: "manual" });
+    if (planId) {
+      const { data: p } = await db().from("content_plan").select("topic, format").eq("id", planId).single();
+      if (!p) throw new Error("Calendar item not found");
+      topic = p.topic;
+      format = p.format as "long" | "short";
+      await generateScript({ topic, format, planId, wordCount });
+      openId = planId;
+    } else {
+      if (!topic) return;
+      await generateScript({ topic, format, source: "manual", wordCount });
+    }
   } catch (e: any) {
     redirect(`/generate?error=${encodeURIComponent(e?.message || "Generation failed")}`);
   }
   revalidatePath("/generate");
-}
-
-export async function generateWeekPlan() {
-  try {
-    await generatePlan();
-  } catch (e: any) {
-    redirect(`/calendar?error=${encodeURIComponent(e?.message || "Planning failed")}`);
-  }
   revalidatePath("/calendar");
+  redirect(openId ? `/generate?open=${openId}` : "/generate");
 }
 
 export async function writeScriptForPlan(formData: FormData) {
@@ -138,6 +172,59 @@ export async function writeScriptForPlan(formData: FormData) {
   }
   revalidatePath("/calendar");
   revalidatePath("/generate");
+}
+
+// Clear generated scripts (one or many). Reverts calendar slots to "idea",
+// removes orphaned manual (unscheduled) plan rows entirely.
+export async function clearAssetsBulk(ids: string[]) {
+  if (!ids?.length) return;
+  const supabase = db();
+  const { data: rows } = await supabase.from("content_assets").select("id, plan_id").in("id", ids);
+  await supabase.from("content_assets").delete().in("id", ids);
+
+  const planIds = Array.from(new Set((rows || []).map((r) => r.plan_id).filter(Boolean)));
+  for (const pid of planIds) {
+    const { count } = await supabase
+      .from("content_assets")
+      .select("id", { count: "exact", head: true })
+      .eq("plan_id", pid);
+    if ((count ?? 0) === 0) {
+      const { data: plan } = await supabase
+        .from("content_plan")
+        .select("publish_date, source, status")
+        .eq("id", pid)
+        .single();
+      if (plan) {
+        if (!plan.publish_date && plan.source === "manual") {
+          await supabase.from("content_plan").delete().eq("id", pid);
+        } else if (plan.status === "scripted") {
+          await supabase.from("content_plan").update({ status: "idea" }).eq("id", pid);
+        }
+      }
+    }
+  }
+  revalidatePath("/generate");
+  revalidatePath("/calendar");
+}
+
+/* ---------------- calendar ---------------- */
+
+export async function generateWeekPlan() {
+  try {
+    await generatePlan(1);
+  } catch (e: any) {
+    redirect(`/calendar?error=${encodeURIComponent(e?.message || "Planning failed")}`);
+  }
+  revalidatePath("/calendar");
+}
+
+export async function generateMonthPlan() {
+  try {
+    await generatePlan(4);
+  } catch (e: any) {
+    redirect(`/calendar?error=${encodeURIComponent(e?.message || "Month planning failed")}`);
+  }
+  revalidatePath("/calendar");
 }
 
 export async function overrideSlot(formData: FormData) {
@@ -171,6 +258,34 @@ export async function markSlotDone(formData: FormData) {
   revalidatePath("/calendar");
 }
 
+export async function deleteSlot(formData: FormData) {
+  const id = String(formData.get("id"));
+  await db().from("content_plan").delete().eq("id", id);
+  revalidatePath("/calendar");
+}
+
+// Move a slot to a new publish date; production dates are re-planned around the edit buffer.
+export async function moveSlot(formData: FormData) {
+  const id = String(formData.get("id"));
+  const date = String(formData.get("publish_date") || "");
+  if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  const supabase = db();
+  const [{ data: plan }, { data: cfg }] = await Promise.all([
+    supabase.from("content_plan").select("format").eq("id", id).single(),
+    supabase.from("channel_config").select("*").eq("id", 1).single(),
+  ]);
+  if (!plan) return;
+  await supabase
+    .from("content_plan")
+    .update({
+      publish_date: date,
+      ...productionDates(date, plan.format as "long" | "short", cfg),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  revalidatePath("/calendar");
+}
+
 export async function refreshSuggestions() {
   try {
     await generateSuggestions();
@@ -199,24 +314,6 @@ export async function swapWithSuggestion(formData: FormData) {
     .eq("id", slotId);
   await supabase.from("content_plan").delete().eq("id", poolId); // consume the suggestion
   revalidatePath("/calendar");
-}
-
-export async function triggerPatterns() {
-  try {
-    await analyzePatterns();
-  } catch (e: any) {
-    redirect(`/patterns?error=${encodeURIComponent(e?.message || "Pattern analysis failed")}`);
-  }
-  revalidatePath("/patterns");
-}
-
-export async function triggerRadar() {
-  try {
-    await discoverInternetIdeas();
-  } catch (e: any) {
-    redirect(`/radar?error=${encodeURIComponent(e?.message || "Radar scan failed")}`);
-  }
-  revalidatePath("/radar");
 }
 
 export async function swapRadarIntoSlot(formData: FormData) {

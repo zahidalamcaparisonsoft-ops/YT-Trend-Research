@@ -16,8 +16,9 @@ export async function generateScript(opts: {
   planId?: string | null;
   trendId?: string | null;
   source?: "manual" | "trend" | "hot" | "pillar";
+  wordCount?: number | null;
 }) {
-  const { topic, format } = opts;
+  const { topic, format, wordCount } = opts;
   const supabase = db();
   const profile = await getProfile();
   const [winners, patterns] = await Promise.all([getMyWinnersText(), getPatternsText(format)]);
@@ -56,7 +57,11 @@ export async function generateScript(opts: {
 
 FORMAT: ${format === "short" ? "YouTube SHORT (vertical, under 60s)" : "Long-form YouTube video"}
 TOPIC: ${topic}
-${winners ? `\nWHAT WORKS FOR ME (lean into these winners):\n${winners}\n` : ""}${patterns ? `\n${patterns}\n` : ""}
+${
+    wordCount
+      ? `TARGET LENGTH: the "script" field must be roughly ${wordCount} words (within ±10%). Write the FULL script at that length — do not summarize.\n`
+      : ""
+  }${winners ? `\nWHAT WORKS FOR ME (lean into these winners):\n${winners}\n` : ""}${patterns ? `\n${patterns}\n` : ""}
 Write the complete package in my voice, using my winning title/thumbnail patterns. Return JSON exactly in this shape:
 ${shape}`;
 

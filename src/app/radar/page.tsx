@@ -1,4 +1,3 @@
-import Nav from "@/components/Nav";
 import { db } from "@/lib/supabase";
 import { triggerRadar, swapRadarIntoSlot } from "../actions";
 import PendingButton from "@/components/PendingButton";
@@ -35,14 +34,13 @@ export default async function RadarPage({ searchParams }: { searchParams: { erro
 
   return (
     <>
-      <Nav active="/radar" />
-      <form action={triggerRadar} className="mb-4">
-        <div className="flex items-center justify-between">
+      <form action={triggerRadar} className="mb-5">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-lg font-semibold">🌐 Internet Radar</h1>
-            <p className="text-xs text-slate-400">
-              What the WHOLE niche is making right now — beyond your competitors. Stay ahead. (Auto-refreshed
-              daily at 9am Dhaka + sent to Discord.)
+            <h1 className="text-xl md:text-2xl font-bold">🌐 Internet Radar</h1>
+            <p className="text-xs md:text-sm text-zinc-500">
+              What the WHOLE niche is making right now — beyond your competitors. Daily digest hits Discord at
+              9am Dhaka.
             </p>
           </div>
           <PendingButton pendingText="Scanning…">🔍 Discover now</PendingButton>
@@ -50,12 +48,10 @@ export default async function RadarPage({ searchParams }: { searchParams: { erro
         <PendingBar label="Scanning all of YouTube across your niche — up to a minute." />
       </form>
 
-      {searchParams?.error && (
-        <div className="card p-3 mb-4 text-sm text-red-300 border border-red-500/30">⚠️ {searchParams.error}</div>
-      )}
-      {err && <p className="text-xs text-amber-300 mb-4">DB error: {err}</p>}
+      {searchParams?.error && <div className="toast-err">⚠️ {searchParams.error}</div>}
+      {err && <p className="text-xs text-amber-600 mb-4">DB error: {err}</p>}
       {ideas.length === 0 && !err && (
-        <div className="card p-5 text-sm text-slate-400">No radar ideas yet. Hit “Discover now”.</div>
+        <div className="card p-5 text-sm text-zinc-500">No radar ideas yet. Hit “Discover now”.</div>
       )}
 
       <div className="grid md:grid-cols-2 gap-3">
@@ -64,34 +60,31 @@ export default async function RadarPage({ searchParams }: { searchParams: { erro
           return (
             <div key={i.id} className="card p-4">
               <div className="flex items-center gap-2 mb-1">
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                    i.format === "short" ? "bg-brand/20 text-brand" : "bg-accent/20 text-accent"
-                  }`}
-                >
+                <span className={`pill ${i.format === "short" ? "pill-short" : "pill-long"}`}>
                   {i.format === "short" ? "SHORT" : "LONG"}
                 </span>
-                <span className="font-medium text-sm flex-1">{i.topic}</span>
+                <span className="font-bold text-sm flex-1 leading-snug">{i.topic}</span>
               </div>
-              {i.angle && <p className="text-sm text-slate-300 mb-1">↳ {i.angle}</p>}
-              {i.why && <p className="text-xs text-slate-500 mb-3">📈 {i.why}</p>}
+              {i.angle && <p className="text-sm text-zinc-600 mb-1">↳ {i.angle}</p>}
+              {i.why && <p className="text-xs text-zinc-400 mb-3">📈 {i.why}</p>}
 
               {slotsFor.length > 0 ? (
                 <form action={swapRadarIntoSlot} className="flex items-center gap-2">
                   <input type="hidden" name="ideaId" value={i.id} />
-                  <select name="slotId" className="input !py-1 !px-2 text-xs flex-1">
+                  <select name="slotId" className="input !py-1.5 !px-2 !text-xs flex-1">
                     {slotsFor.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {new Date(s.publish_date + "T00:00:00").toLocaleDateString()} — {(s.topic || "").slice(0, 34)}
+                        {new Date(s.publish_date + "T00:00:00").toLocaleDateString()} —{" "}
+                        {(s.topic || "").slice(0, 34)}
                       </option>
                     ))}
                   </select>
-                  <button className="btn btn-brand !py-1 !px-2 text-xs" type="submit">
+                  <button className="btn btn-sun !py-1.5 !px-3 !text-xs" type="submit">
                     Swap in →
                   </button>
                 </form>
               ) : (
-                <p className="text-xs text-slate-600">Plan a week first to swap this {i.format} idea into a slot.</p>
+                <p className="text-xs text-zinc-400">Plan a week first to swap this {i.format} idea into a slot.</p>
               )}
             </div>
           );

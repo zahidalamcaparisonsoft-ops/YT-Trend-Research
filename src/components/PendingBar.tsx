@@ -10,7 +10,7 @@ export default function PendingBar({ label }: { label?: string }) {
       <div className="progress">
         <span />
       </div>
-      {label && <p className="text-xs text-slate-400 mt-2">⏳ {label}</p>}
+      {label && <p className="text-xs text-zinc-500 mt-2">⏳ {label}</p>}
     </div>
   );
 }

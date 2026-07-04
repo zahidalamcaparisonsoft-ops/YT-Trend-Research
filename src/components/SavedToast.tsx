@@ -17,9 +17,5 @@ export default function SavedToast({ saved, basePath = "/dna" }: { saved?: strin
   }, [saved]);
 
   if (!msg) return null;
-  return (
-    <div className="mb-4 rounded-lg px-4 py-2 text-sm bg-accent/15 text-accent border border-accent/30">
-      ✓ {msg}
-    </div>
-  );
+  return <div className="toast-ok">✓ {msg}</div>;
 }

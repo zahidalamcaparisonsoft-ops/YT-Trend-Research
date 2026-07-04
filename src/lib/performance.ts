@@ -9,6 +9,7 @@ function median(a: number[]): number {
 
 export type MyVid = {
   id: string;
+  ytid: string;
   title: string;
   format: "long" | "short";
   published_at: string;
@@ -24,7 +25,7 @@ export async function getMyPerformance(): Promise<{ videos: MyVid[]; winners: My
   const supabase = db();
   const { data: vids } = await supabase
     .from("videos")
-    .select("id, title, format, published_at, thumbnail_url, channels!inner(is_self)")
+    .select("id, youtube_video_id, title, format, published_at, thumbnail_url, channels!inner(is_self)")
     .eq("channels.is_self", true)
     .order("published_at", { ascending: false })
     .limit(80);
@@ -52,6 +53,7 @@ export async function getMyPerformance(): Promise<{ videos: MyVid[]; winners: My
     const age = Math.max(1, (Date.now() - new Date(v.published_at).getTime()) / 864e5);
     return {
       id: v.id,
+      ytid: v.youtube_video_id || "",
       title: v.title || "",
       format: v.format,
       published_at: v.published_at,

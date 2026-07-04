@@ -2,7 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFormStatus } from "react-dom";
 import { addChannel } from "../actions";
+
+function SubmitBtn() {
+  const { pending } = useFormStatus();
+  return (
+    <button className="btn btn-brand mb-0.5" type="submit" disabled={pending}>
+      {pending ? (
+        <>
+          <span className="spinner" /> Adding…
+        </>
+      ) : (
+        "+ Add"
+      )}
+    </button>
+  );
+}
 
 export default function AddChannelForm({ added, error }: { added?: string; error?: string }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -25,28 +41,16 @@ export default function AddChannelForm({ added, error }: { added?: string; error
 
   return (
     <div>
-      {toast && (
-        <div
-          className={`mb-3 rounded-lg px-4 py-2 text-sm transition-opacity ${
-            toast.ok
-              ? "bg-accent/15 text-accent border border-accent/30"
-              : "bg-red-500/15 text-red-300 border border-red-500/30"
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
+      {toast && <div className={toast.ok ? "toast-ok !mb-3" : "toast-err !mb-3"}>{toast.msg}</div>}
       <form ref={formRef} action={addChannel} className="flex flex-wrap items-end gap-3">
-        <div className="flex-1 min-w-[260px]">
+        <div className="flex-1 min-w-[240px]">
           <label className="label">YouTube URL, @handle, or channel ID</label>
           <input className="input" name="input" placeholder="https://youtube.com/@Creator" />
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-300 mb-2">
-          <input type="checkbox" name="is_self" /> This is my channel
+        <label className="flex items-center gap-2 text-sm text-zinc-600 mb-2.5">
+          <input type="checkbox" name="is_self" className="accent-zinc-900 w-4 h-4" /> This is my channel
         </label>
-        <button className="btn btn-brand mb-1" type="submit">
-          + Add
-        </button>
+        <SubmitBtn />
       </form>
     </div>
   );
