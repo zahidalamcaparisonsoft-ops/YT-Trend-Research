@@ -1,6 +1,7 @@
 import { db } from "./supabase";
 import { generateJSON } from "./llm";
 import { sendDiscord } from "./discord";
+import { generateSuggestions } from "./plan";
 
 function median(arr: number[]): number {
   if (!arr.length) return 0;
@@ -128,6 +129,12 @@ export async function runAnalysis() {
       .map((t) => `• [${t.format}${t.freshness === "hot" ? " 🔥" : ""}] ${t.topic}`)
       .join("\n");
     await sendDiscord(`📊 **Weekly trends ready** (${created} trends)\n${lines}`);
+  }
+  // refresh the "fresh ideas" pool from the new trends
+  try {
+    await generateSuggestions();
+  } catch {
+    /* non-fatal */
   }
   return { trends: created, week: weekStart };
 }

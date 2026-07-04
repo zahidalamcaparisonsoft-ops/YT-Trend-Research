@@ -7,7 +7,7 @@ import { resolveChannel } from "@/lib/youtube";
 import { runIngest } from "@/lib/ingest";
 import { runAnalysis } from "@/lib/analyze";
 import { generateScript } from "@/lib/generate";
-import { generatePlan } from "@/lib/plan";
+import { generatePlan, regenerateSlot, generateSuggestions } from "@/lib/plan";
 import { analyzePatterns } from "@/lib/patterns";
 
 export async function addChannel(formData: FormData) {
@@ -151,6 +151,52 @@ export async function setPlanStatus(formData: FormData) {
   const id = String(formData.get("id"));
   const status = String(formData.get("status"));
   await db().from("content_plan").update({ status }).eq("id", id);
+  revalidatePath("/calendar");
+}
+
+export async function regenerateSlotAction(formData: FormData) {
+  const id = String(formData.get("id"));
+  try {
+    await regenerateSlot(id);
+  } catch (e: any) {
+    redirect(`/calendar?error=${encodeURIComponent(e?.message || "Couldn't suggest a new topic")}`);
+  }
+  revalidatePath("/calendar");
+}
+
+export async function markSlotDone(formData: FormData) {
+  const id = String(formData.get("id"));
+  await db().from("content_plan").update({ status: "published" }).eq("id", id);
+  revalidatePath("/calendar");
+}
+
+export async function refreshSuggestions() {
+  try {
+    await generateSuggestions();
+  } catch (e: any) {
+    redirect(`/calendar?error=${encodeURIComponent(e?.message || "Couldn't refresh ideas")}`);
+  }
+  revalidatePath("/calendar");
+}
+
+export async function swapWithSuggestion(formData: FormData) {
+  const slotId = String(formData.get("slotId"));
+  const poolId = String(formData.get("poolId"));
+  if (!slotId || !poolId) return;
+  const supabase = db();
+  const { data: pool } = await supabase.from("content_plan").select("*").eq("id", poolId).single();
+  if (!pool) return;
+  await supabase
+    .from("content_plan")
+    .update({
+      topic: pool.topic,
+      angle: pool.angle,
+      source: pool.source,
+      status: "idea",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", slotId);
+  await supabase.from("content_plan").delete().eq("id", poolId); // consume the suggestion
   revalidatePath("/calendar");
 }
 

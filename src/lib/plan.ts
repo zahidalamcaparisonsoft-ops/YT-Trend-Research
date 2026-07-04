@@ -106,6 +106,7 @@ Rules:
 - "trend-led" => mostly ride the hot trends.
 - SHORT slots must use short-form ideas; LONG slots long-form ideas.
 - Each must be specific to my niche/voice and NOT repeat recent topics.
+- Be TECHNICALLY ACCURATE. Never conflate a tool with a model (e.g. "Claude Code" is a coding tool/CLI, not a model — do NOT pit it against a model like "Opus 4.8"; compare tools with tools and models with models). Do not reference specific calendar years. If unsure a claim is real, keep the idea general rather than inventing a comparison.
 
 For EACH slot in order return: "topic" (specific), "angle" (the hook/POV, one line), "source" ("pillar" | "trend" | "hot").
 Return JSON: { "items": [ ... same length and order as slots ... ] }`;
@@ -202,4 +203,95 @@ export async function generatePlan() {
     created++;
   }
   return { created, weekStart, weekEnd };
+}
+
+async function loadTrends(supabase: ReturnType<typeof db>) {
+  const { data: trends } = await supabase
+    .from("trends")
+    .select("format, topic, summary, freshness")
+    .order("week_start", { ascending: false })
+    .limit(30);
+  return {
+    long: (trends || []).filter((t) => t.format === "long").slice(0, 8),
+    short: (trends || []).filter((t) => t.format === "short").slice(0, 8),
+  };
+}
+
+// Replace ONE slot's topic with a fresh AI suggestion (same format), avoiding existing/recent topics.
+export async function regenerateSlot(slotId: string) {
+  const supabase = db();
+  const { data: slot } = await supabase.from("content_plan").select("*").eq("id", slotId).single();
+  if (!slot) return;
+  const [{ data: cfg }, { data: profile }] = await Promise.all([
+    supabase.from("channel_config").select("*").eq("id", 1).single(),
+    supabase.from("channel_profile").select("*").eq("id", 1).single(),
+  ]);
+  const trends = await loadTrends(supabase);
+  const winners = await getMyWinnersText();
+  const { data: others } = await supabase
+    .from("content_plan")
+    .select("topic")
+    .neq("id", slotId)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  const avoid = (others || []).map((o) => o.topic).filter(Boolean).concat(slot.topic ? [slot.topic] : []);
+
+  const items = await assignTopics(
+    [{ format: slot.format }],
+    trends,
+    profile || {},
+    cfg?.trend_vs_pillar || "pillar-led",
+    avoid as string[],
+    winners
+  );
+  const a = items[0] || { topic: slot.topic, angle: "", source: "pillar" };
+  await supabase
+    .from("content_plan")
+    .update({
+      topic: a.topic,
+      angle: a.angle || "",
+      source: ["pillar", "trend", "hot"].includes(a.source) ? a.source : "trend",
+      status: "idea",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", slotId);
+}
+
+// Refresh the "fresh ideas" pool (unscheduled content_plan rows, publish_date = null) from current trends.
+export async function generateSuggestions(nLong = 3, nShort = 3) {
+  const supabase = db();
+  const [{ data: cfg }, { data: profile }] = await Promise.all([
+    supabase.from("channel_config").select("*").eq("id", 1).single(),
+    supabase.from("channel_profile").select("*").eq("id", 1).single(),
+  ]);
+  const trends = await loadTrends(supabase);
+  const winners = await getMyWinnersText();
+  const { data: recent } = await supabase
+    .from("content_plan")
+    .select("topic")
+    .order("created_at", { ascending: false })
+    .limit(30);
+  const recentTopics = (recent || []).map((r) => r.topic).filter(Boolean) as string[];
+
+  const slots = [
+    ...Array.from({ length: nLong }, () => ({ format: "long" as const })),
+    ...Array.from({ length: nShort }, () => ({ format: "short" as const })),
+  ];
+  const items = await assignTopics(slots, trends, profile || {}, cfg?.trend_vs_pillar || "pillar-led", recentTopics, winners);
+
+  // clear the old pool (unscheduled AI ideas)
+  await supabase.from("content_plan").delete().is("publish_date", null).eq("status", "idea");
+
+  for (let i = 0; i < slots.length; i++) {
+    const a = items[i] || {};
+    if (!a.topic) continue;
+    await supabase.from("content_plan").insert({
+      publish_date: null,
+      format: slots[i].format,
+      status: "idea",
+      topic: a.topic,
+      angle: a.angle || "",
+      source: ["pillar", "trend", "hot"].includes(a.source) ? a.source : "trend",
+    });
+  }
 }
