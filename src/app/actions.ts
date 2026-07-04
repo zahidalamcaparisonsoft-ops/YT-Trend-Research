@@ -110,19 +110,31 @@ export async function generateFromTopic(formData: FormData) {
     | "long"
     | "short";
   if (!topic) return;
-  await generateScript({ topic, format, source: "manual" });
+  try {
+    await generateScript({ topic, format, source: "manual" });
+  } catch (e: any) {
+    redirect(`/generate?error=${encodeURIComponent(e?.message || "Generation failed")}`);
+  }
   revalidatePath("/generate");
 }
 
 export async function generateWeekPlan() {
-  await generatePlan();
+  try {
+    await generatePlan();
+  } catch (e: any) {
+    redirect(`/calendar?error=${encodeURIComponent(e?.message || "Planning failed")}`);
+  }
   revalidatePath("/calendar");
 }
 
 export async function writeScriptForPlan(formData: FormData) {
   const id = String(formData.get("id"));
-  const { data: p } = await db().from("content_plan").select("topic, format").eq("id", id).single();
-  if (p) await generateScript({ topic: p.topic, format: p.format as "long" | "short", planId: id });
+  try {
+    const { data: p } = await db().from("content_plan").select("topic, format").eq("id", id).single();
+    if (p) await generateScript({ topic: p.topic, format: p.format as "long" | "short", planId: id });
+  } catch (e: any) {
+    redirect(`/calendar?error=${encodeURIComponent(e?.message || "Script generation failed")}`);
+  }
   revalidatePath("/calendar");
   revalidatePath("/generate");
 }
@@ -143,6 +155,10 @@ export async function setPlanStatus(formData: FormData) {
 }
 
 export async function triggerPatterns() {
-  await analyzePatterns();
+  try {
+    await analyzePatterns();
+  } catch (e: any) {
+    redirect(`/patterns?error=${encodeURIComponent(e?.message || "Pattern analysis failed")}`);
+  }
   revalidatePath("/patterns");
 }

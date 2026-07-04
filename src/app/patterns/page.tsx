@@ -1,6 +1,8 @@
 import Nav from "@/components/Nav";
 import { db } from "@/lib/supabase";
 import { triggerPatterns } from "../actions";
+import PendingButton from "@/components/PendingButton";
+import PendingBar from "@/components/PendingBar";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 90;
@@ -10,7 +12,7 @@ async function load() {
   return data || {};
 }
 
-export default async function PatternsPage() {
+export default async function PatternsPage({ searchParams }: { searchParams: { error?: string } }) {
   let ins: any = {};
   let err: string | null = null;
   try {
@@ -24,20 +26,24 @@ export default async function PatternsPage() {
   return (
     <>
       <Nav active="/patterns" />
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-lg font-semibold">Title &amp; Thumbnail Patterns</h1>
-          <p className="text-xs text-slate-400">
-            What makes competitors&apos; winning videos click — learned from their titles &amp; thumbnails.
-          </p>
+      <form action={triggerPatterns} className="mb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold">Title &amp; Thumbnail Patterns</h1>
+            <p className="text-xs text-slate-400">
+              What makes competitors&apos; winning videos click — learned from their titles &amp; thumbnails.
+            </p>
+          </div>
+          <PendingButton pendingText="Analyzing…">🔎 Analyze patterns</PendingButton>
         </div>
-        <form action={triggerPatterns}>
-          <button className="btn btn-brand" type="submit">
-            🔎 Analyze patterns
-          </button>
-        </form>
-      </div>
+        <PendingBar label="Studying competitor titles &amp; thumbnails with AI vision — up to a minute." />
+      </form>
 
+      {searchParams?.error && (
+        <div className="card p-3 mb-4 text-sm text-red-300 border border-red-500/30">
+          ⚠️ Pattern analysis failed: {searchParams.error}
+        </div>
+      )}
       {err && <p className="text-xs text-amber-300 mb-4">DB error: {err}</p>}
 
       <div className="grid md:grid-cols-2 gap-6">

@@ -1,6 +1,8 @@
 import Nav from "@/components/Nav";
 import { db } from "@/lib/supabase";
 import { generateWeekPlan, writeScriptForPlan, overrideSlot } from "../actions";
+import PendingButton from "@/components/PendingButton";
+import PendingBar from "@/components/PendingBar";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -18,7 +20,7 @@ async function load() {
   return data || [];
 }
 
-export default async function CalendarPage() {
+export default async function CalendarPage({ searchParams }: { searchParams: { error?: string } }) {
   let items: any[] = [];
   let err: string | null = null;
   try {
@@ -30,20 +32,24 @@ export default async function CalendarPage() {
   return (
     <>
       <Nav active="/calendar" />
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-lg font-semibold">Autopilot Calendar</h1>
-          <p className="text-xs text-slate-400">
-            Topics chosen from your pillars + timely trends. Film/edit dates back-planned from your edit buffer.
-          </p>
+      <form action={generateWeekPlan} className="mb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold">Autopilot Calendar</h1>
+            <p className="text-xs text-slate-400">
+              Topics chosen from your pillars + timely trends. Film/edit dates back-planned from your edit buffer.
+            </p>
+          </div>
+          <PendingButton pendingText="Planning…">🤖 Plan next week</PendingButton>
         </div>
-        <form action={generateWeekPlan}>
-          <button className="btn btn-brand" type="submit">
-            🤖 Plan next week
-          </button>
-        </form>
-      </div>
+        <PendingBar label="Choosing topics + back-planning your week with AI — up to a minute." />
+      </form>
 
+      {searchParams?.error && (
+        <div className="card p-3 mb-4 text-sm text-red-300 border border-red-500/30">
+          ⚠️ {searchParams.error}
+        </div>
+      )}
       {err && <p className="text-xs text-amber-300 mb-4">DB error: {err}</p>}
       {!err && items.length === 0 && (
         <div className="card p-5 text-sm text-slate-400">
@@ -98,9 +104,9 @@ function Slot({ s }: { s: any }) {
         ) : (
           <form action={writeScriptForPlan}>
             <input type="hidden" name="id" value={s.id} />
-            <button className="btn btn-brand !py-1 !px-2 text-xs" type="submit">
+            <PendingButton pendingText="Writing…" className="btn btn-brand !py-1 !px-2 text-xs">
               ✍️ Write script
-            </button>
+            </PendingButton>
           </form>
         )}
         <form action={overrideSlot} className="flex items-center gap-1">

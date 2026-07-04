@@ -1,6 +1,8 @@
 import Nav from "@/components/Nav";
 import { db } from "@/lib/supabase";
 import { generateFromTopic } from "../actions";
+import PendingButton from "@/components/PendingButton";
+import PendingBar from "@/components/PendingBar";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -14,7 +16,7 @@ async function recent() {
   return data || [];
 }
 
-export default async function GeneratePage() {
+export default async function GeneratePage({ searchParams }: { searchParams: { error?: string } }) {
   let items: any[] = [];
   let err: string | null = null;
   try {
@@ -44,11 +46,17 @@ export default async function GeneratePage() {
             <label className="flex items-center gap-2 text-sm">
               <input type="radio" name="format" value="short" /> Short
             </label>
-            <button className="btn btn-brand ml-auto" type="submit">
+            <PendingButton pendingText="Writing…" className="btn btn-brand ml-auto">
               ✍️ Generate
-            </button>
+            </PendingButton>
           </div>
+          <PendingBar label="Writing your full script package in your voice — up to a minute." />
         </form>
+        {searchParams?.error && (
+          <p className="mt-3 rounded-lg px-3 py-2 text-sm bg-red-500/15 text-red-300 border border-red-500/30">
+            ⚠️ {searchParams.error}
+          </p>
+        )}
         {err && <p className="text-xs text-amber-300 mt-3">DB error: {err}</p>}
       </div>
 
