@@ -76,3 +76,17 @@ export function parseDuration(iso: string): number | null {
   if (!m) return null;
   return Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0);
 }
+
+// Search ALL of YouTube (not just tracked competitors) for a query, most-viewed recent videos.
+export async function searchVideos(query: string, publishedAfterISO: string, max = 15): Promise<string[]> {
+  const data = await api("search", {
+    part: "snippet",
+    q: query,
+    type: "video",
+    order: "viewCount",
+    publishedAfter: publishedAfterISO,
+    relevanceLanguage: "en",
+    maxResults: String(Math.min(max, 25)),
+  });
+  return (data.items || []).map((it: any) => it.id?.videoId).filter(Boolean);
+}

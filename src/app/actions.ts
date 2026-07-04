@@ -9,6 +9,7 @@ import { runAnalysis } from "@/lib/analyze";
 import { generateScript } from "@/lib/generate";
 import { generatePlan, regenerateSlot, generateSuggestions } from "@/lib/plan";
 import { analyzePatterns } from "@/lib/patterns";
+import { discoverInternetIdeas } from "@/lib/internet";
 
 export async function addChannel(formData: FormData) {
   const input = String(formData.get("input") || "").trim();
@@ -207,4 +208,13 @@ export async function triggerPatterns() {
     redirect(`/patterns?error=${encodeURIComponent(e?.message || "Pattern analysis failed")}`);
   }
   revalidatePath("/patterns");
+}
+
+export async function triggerRadar() {
+  try {
+    await discoverInternetIdeas();
+  } catch (e: any) {
+    redirect(`/radar?error=${encodeURIComponent(e?.message || "Radar scan failed")}`);
+  }
+  revalidatePath("/radar");
 }
