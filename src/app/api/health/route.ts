@@ -62,5 +62,8 @@ export async function GET() {
     out.supabaseWrite = { ok: false, error: String(e?.message || e) };
   }
 
-  return NextResponse.json(out, { status: 200 });
+  return NextResponse.json(out, {
+    status: 200,
+    headers: { "Cache-Control": "no-store, max-age=0" },
+  });
 }
