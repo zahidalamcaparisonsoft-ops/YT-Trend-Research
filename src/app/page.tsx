@@ -1,8 +1,11 @@
 import Nav from "@/components/Nav";
 import { db } from "@/lib/supabase";
 import { triggerIngest } from "./actions";
+import PendingButton from "@/components/PendingButton";
+import PendingBar from "@/components/PendingBar";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 async function load() {
   const supabase = db();
@@ -50,14 +53,13 @@ export default async function Dashboard() {
             <Stat n={data!.shorts} label="Shorts" />
           </div>
 
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-300">Recent competitor uploads</h2>
-            <form action={triggerIngest}>
-              <button className="btn btn-brand" type="submit">
-                ⟳ Pull latest now
-              </button>
-            </form>
-          </div>
+          <form action={triggerIngest} className="mb-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-300">Recent competitor uploads</h2>
+              <PendingButton pendingText="Pulling…">⟳ Pull latest now</PendingButton>
+            </div>
+            <PendingBar label="Fetching latest videos from all your channels — this can take up to a minute." />
+          </form>
 
           <div className="card divide-y divide-line">
             {data!.recent.length === 0 && (

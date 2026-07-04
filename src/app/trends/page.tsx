@@ -1,6 +1,8 @@
 import Nav from "@/components/Nav";
 import { db } from "@/lib/supabase";
 import { triggerAnalysis } from "../actions";
+import PendingButton from "@/components/PendingButton";
+import PendingBar from "@/components/PendingBar";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -34,19 +36,18 @@ export default async function TrendsPage() {
   return (
     <>
       <Nav active="/trends" />
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-lg font-semibold">Trends</h1>
-          <p className="text-xs text-slate-400">
-            What&apos;s over-performing on competitor channels — longs &amp; shorts judged separately.
-          </p>
+      <form action={triggerAnalysis} className="mb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold">Trends</h1>
+            <p className="text-xs text-slate-400">
+              What&apos;s over-performing on competitor channels — longs &amp; shorts judged separately.
+            </p>
+          </div>
+          <PendingButton pendingText="Analyzing…">⚡ Run analysis</PendingButton>
         </div>
-        <form action={triggerAnalysis}>
-          <button className="btn btn-brand" type="submit">
-            ⚡ Run analysis
-          </button>
-        </form>
-      </div>
+        <PendingBar label="Finding outliers &amp; clustering trends with AI — this can take up to a minute." />
+      </form>
 
       {err && <p className="text-xs text-amber-300 mb-4">DB error: {err}</p>}
 
