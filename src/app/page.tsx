@@ -15,7 +15,7 @@ async function load() {
     supabase.from("videos").select("id", { count: "exact", head: true }).eq("format", "short"),
     supabase
       .from("videos")
-      .select("title, format, published_at, channels(name)")
+      .select("title, format, published_at, youtube_video_id, channels(name)")
       .order("published_at", { ascending: false })
       .limit(12),
   ]);
@@ -68,7 +68,13 @@ export default async function Dashboard() {
               </div>
             )}
             {data!.recent.map((v: any, i: number) => (
-              <div key={i} className="p-3 flex items-center gap-3 text-sm">
+              <a
+                key={i}
+                href={`https://www.youtube.com/watch?v=${v.youtube_video_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group p-3 flex items-center gap-3 text-sm hover:bg-line/40 transition"
+              >
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                     v.format === "short" ? "bg-brand/20 text-brand" : "bg-accent/20 text-accent"
@@ -76,12 +82,15 @@ export default async function Dashboard() {
                 >
                   {v.format === "short" ? "SHORT" : "LONG"}
                 </span>
-                <span className="flex-1 truncate">{v.title}</span>
+                <span className="flex-1 truncate group-hover:text-white group-hover:underline">
+                  {v.title}
+                </span>
                 <span className="text-slate-500 truncate max-w-[140px]">{v.channels?.name}</span>
                 <span className="text-slate-600 text-xs">
                   {v.published_at ? new Date(v.published_at).toLocaleDateString() : ""}
                 </span>
-              </div>
+                <span className="text-slate-500 group-hover:text-brand text-xs">↗</span>
+              </a>
             ))}
           </div>
         </>
